@@ -12,6 +12,8 @@ import (
 )
 
 func findAddend(numbers []int, sum int) []int {
+	// map allows us for fast lookups of exiting
+	// elements by value
 	lookup := make(map[int]int)
 	for idx1, v := range numbers {
 		if idx2, ok := lookup[sum-numbers[idx1]]; ok {
