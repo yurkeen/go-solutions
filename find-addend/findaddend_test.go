@@ -22,6 +22,11 @@ func TestFindAddend(t *testing.T) {
 			expected:  []int{8, 10},
 		},
 		{
+			targetSum: -4,
+			input:     []int{0, -40, 1, -1, 19, -2, 5, 90, -2, 7, 11, 15},
+			expected:  []int{5, 8},
+		},
+		{
 			targetSum: 0,
 			input:     []int{0, 2, 7, 11, 15, 0},
 			expected:  []int{0, 5},
