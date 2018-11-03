@@ -19,21 +19,6 @@ type ListNode struct {
 	Next *ListNode
 }
 
-// PrintNodes traverses the list down printing all values
-func (l *ListNode) PrintNodes() {
-	for node := l; node != nil; node = node.Next {
-		fmt.Printf("[%d]-> ", node.Val)
-	}
-}
-
-func (l *ListNode) listLen() int {
-	result := 0
-	for node := l; node != nil; node = node.Next {
-		result++
-	}
-	return result
-}
-
 // findLast returns pointer to the last node in the linked list
 func (l *ListNode) findLast() *ListNode {
 	for node := l; ; {
@@ -52,32 +37,45 @@ func (l *ListNode) appendNode(v int) *ListNode {
 	return newNode
 }
 
-func addTwoNumbers(l1 *ListNode, l2 *ListNode) *ListNode {
-	// We want to add to the largest (longer) value
-	longer, shorter := l1, l2
-	if l1.listLen() < l2.listLen() {
-		longer, shorter = l2, l1
+// PrintDownNodes traverses the list down printing all values
+func (l *ListNode) PrintDownNodes() {
+	for node := l; node != nil; node = node.Next {
+		fmt.Printf("[%d]", node.Val)
+		if node.Next != nil {
+			fmt.Printf("->")
+		}
 	}
-	carry := 0 // Handles digit overflow
-	for cursor1, cursor2 := longer, shorter; cursor1 != nil; cursor1 = cursor1.Next {
-		// Cursors point to node in respective lists.
-		// We iterate over the longer list.
-		cursor1.Val += carry
+}
 
-		valSum := cursor1.Val
+func addTwoNumbers(l1 *ListNode, l2 *ListNode) *ListNode {
+	result := &ListNode{}
+
+	cursor1 := l1
+	cursor2 := l2
+
+	// Iterate until both cursors are nill and carry is empty
+	for sum, carry, node := 0, 0, result; ; {
+		sum = carry
+		if cursor1 != nil {
+			sum += cursor1.Val
+			cursor1 = cursor1.Next
+		}
+
 		if cursor2 != nil {
-			valSum += cursor2.Val
+			sum += cursor2.Val
 			cursor2 = cursor2.Next
 		}
-		carry = valSum / 10
-		cursor1.Val = valSum % 10
 
-		if carry != 0 && cursor1.Next == nil {
-			cursor1.appendNode(carry)
-			break
+		carry = sum / 10
+		node.Val = sum % 10
+
+		if cursor1 == nil && cursor2 == nil && carry == 0 {
+			return result
 		}
+
+		node.Next = &ListNode{carry, nil}
+		node = node.Next
 	}
-	return longer
 }
 
 func main() {
@@ -90,5 +88,5 @@ func main() {
 	secondNumber.appendNode(3)
 
 	result := addTwoNumbers(firstNumber, secondNumber)
-	result.PrintNodes()
+	result.PrintDownNodes()
 }

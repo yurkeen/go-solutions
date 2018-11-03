@@ -36,9 +36,9 @@ func TestAddTwoNumbers(t *testing.T) {
 	for _, testCase := range testCases {
 		if result := addTwoNumbers(testCase.leftList, testCase.righList); !reflect.DeepEqual(result, testCase.expectedList) {
 			fmt.Print("Wanted: ")
-			testCase.expectedList.PrintNodes()
+			testCase.expectedList.PrintDownNodes()
 			fmt.Print(" Returned: ")
-			result.PrintNodes()
+			result.PrintDownNodes()
 			t.Errorf("Expected result was incorrect.")
 		}
 	}
