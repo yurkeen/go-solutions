@@ -6,7 +6,7 @@ import (
 )
 
 func TestLengthOfLongestSubstring(t *testing.T) {
-	testCases := []struct {
+	tests := []struct {
 		input    string
 		expected int
 	}{
@@ -18,9 +18,9 @@ func TestLengthOfLongestSubstring(t *testing.T) {
 		{"aabababcabcabcdabcdefff", 6},
 	}
 
-	for _, testCase := range testCases {
-		if result := lengthOfLongestSubstring(testCase.input); !reflect.DeepEqual(result, testCase.expected) {
-			t.Errorf("Expected result was incorrect, returned: %v, wanted: %v.", result, testCase.expected)
+	for _, test := range tests {
+		if result := lengthOfLongestSubstring(test.input); !reflect.DeepEqual(result, test.expected) {
+			t.Errorf("Expected result was incorrect, returned: %v, wanted: %v.", result, test.expected)
 		}
 	}
 }

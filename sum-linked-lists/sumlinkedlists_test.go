@@ -7,7 +7,7 @@ import (
 )
 
 func TestAddTwoNumbers(t *testing.T) {
-	testCases := []struct {
+	tests := []struct {
 		leftList     *ListNode
 		righList     *ListNode
 		expectedList *ListNode
@@ -33,10 +33,10 @@ func TestAddTwoNumbers(t *testing.T) {
 			expectedList: &ListNode{0, &ListNode{0, &ListNode{2, nil}}},
 		},
 	}
-	for _, testCase := range testCases {
-		if result := addTwoNumbers(testCase.leftList, testCase.righList); !reflect.DeepEqual(result, testCase.expectedList) {
+	for _, test := range tests {
+		if result := addTwoNumbers(test.leftList, test.righList); !reflect.DeepEqual(result, test.expectedList) {
 			fmt.Print("Wanted: ")
-			testCase.expectedList.PrintDownNodes()
+			test.expectedList.PrintDownNodes()
 			fmt.Print(" Returned: ")
 			result.PrintDownNodes()
 			t.Errorf("Expected result was incorrect.")

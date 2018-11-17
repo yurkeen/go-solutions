@@ -6,7 +6,7 @@ import (
 )
 
 func TestFindAddend(t *testing.T) {
-	testCases := []struct {
+	tests := []struct {
 		targetSum int
 		input     []int
 		expected  []int
@@ -43,9 +43,9 @@ func TestFindAddend(t *testing.T) {
 		},
 	}
 
-	for _, testCase := range testCases {
-		if result := findAddend(testCase.input, testCase.targetSum); !reflect.DeepEqual(result, testCase.expected) {
-			t.Errorf("Expected result was incorrect, returned: %v, wanted: %v.", result, testCase.expected)
+	for _, test := range tests {
+		if result := findAddend(test.input, test.targetSum); !reflect.DeepEqual(result, test.expected) {
+			t.Errorf("Expected result was incorrect, returned: %v, wanted: %v.", result, test.expected)
 		}
 	}
 }
