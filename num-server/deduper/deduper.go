@@ -2,6 +2,9 @@ package deduper
 
 import (
 	"bytes"
+	"encoding/binary"
+	"fmt"
+	"os"
 )
 
 const (
@@ -12,36 +15,51 @@ const (
 )
 
 type Deduper struct {
+	file  os.File
 	seen  map[uint32]bool
 	input chan []byte
 }
 
-func New(size int) Deduper {
-	return Deduper{
+func New(log *os.File, size int) Deduper {
+
+	d := Deduper{
+		file:  *os.file,
 		seen:  make(map[uint32]bool),
 		input: make(chan []byte, size),
 	}
+	return d
 }
 
-func (d *Deduper) Read(line []byte) {
+func (d *Deduper) Ingest(line []byte) error {
 	data := bytes.TrimSpace(line)
 
 	dataLen := len(data)
 	if dataLen != maxBytes {
-		println("Closing connection: input must be", maxBytes, "characters, received", dataLen)
-		return
+		return fmt.Errorf("expected %d characters, received %d", maxBytes, dataLen)
 	}
 
 	if bytes.Compare(data, []byte(terminator)) == 0 {
-		gracefulStop()
+		close(d.input) // This may panic, use ctx
+		return nil
 	}
 
 	if !bytesAreUint(data) {
-		println("Closing connection: input is not a number:", string(data))
-		return
+		return fmt.Errorf("input is not a number: %s", string(data))
 	}
+	d.input <- data
+	return nil
+}
 
-	println("OK:", string(data))
+func (d *Deduper) Log() {
+
+	for data := range d.input {
+		number := binary.BigEndian.Uint32(data)
+		if _, ok := d.seen[number]; !ok {
+			d.seen[number] = true
+			d.file.Write(append(data, '\n'))
+		}
+	}
+	return
 }
 
 func gracefulStop() {
