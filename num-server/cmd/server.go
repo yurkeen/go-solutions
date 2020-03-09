@@ -1,71 +1,145 @@
 package main
 
 import (
-	"bufio"
-	"log"
+	"context"
+	"errors"
+	"flag"
+	"fmt"
 	"net"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/yurkeen/go-solutions/num-server/deduper"
 	"golang.org/x/net/netutil"
 )
 
-func handleConnections(nl net.Listener, dd deduper.Deduper) {
-	for {
-		conn, err := nl.Accept()
-		conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+var ErrNetClosing = errors.New("use of closed network connection")
 
-		if err != nil {
-			println("error accepting TCP connection:", err.Error())
-			return
-		}
-
-		go func() {
-			defer conn.Close()
-			for {
-				rawData, err := bufio.NewReader(conn).ReadSlice('\n')
-				if err != nil {
-					println("Closing connection:", err.Error())
-					return
-				}
-				println("Received data:", string(rawData))
-				conn.SetReadDeadline(time.Now().Add(30 * time.Second))
-
-				if err := dd.Ingest(rawData); err != nil {
-					println("Closing connection:", err.Error())
-					return
-				}
-			}
-		}()
-	}
+type Server struct {
+	listener net.Listener
+	stop     chan struct{}
 }
 
-func handleLog(dd deduper.Deduper) {
-
-}
-
-func run() {
-	l, err := net.Listen("tcp", "127.0.0.1:4000")
+func StartServer(ctx context.Context, host string, port int, clients int) (*Server, error) {
+	// Initializing network
+	l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
-		log.Fatal("tcp server listener error:", err.Error())
+		return nil, fmt.Errorf("unable to bind tcp socket: %w", err)
 	}
-	listener := netutil.LimitListener(l, 5)
-	defer listener.Close()
+	listener := netutil.LimitListener(l, clients)
+	s := &Server{
+		listener: listener,
+		stop:     make(chan struct{}),
+	}
+	return s, nil
+}
+
+func (s *Server) serve(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			break
+		default:
+		}
+		conn, err := s.listener.Accept()
+		if err != nil {
+			if !errors.Is(err, ErrNetClosing) {
+				fmt.Fprintf(os.Stderr, "error accepting TCP connection: %s", err.Error())
+			}
+			break
+		}
+		connCh <- conn
+	}
+	return
+}
+
+func run(args []string) error {
+
+	// Flags initialization
+	flags := flag.NewFlagSet(args[0], flag.ExitOnError)
+	var (
+		host           = *flags.String("host", "127.0.0.1", "host")
+		port           = *flags.Int("port", 4000, "port")
+		log            = *flags.String("log", "numbers.log", "log file")
+		maxClients     = *flags.Int("max", 5, "max clients")
+		reportInterval = *flags.Duration("report", 10*time.Second, "report interval")
+		readTimeout    = *flags.Duration("readTimeout", 10*time.Second, "client read timeout")
+	)
+	if err := flags.Parse(args[1:]); err != nil {
+		return err
+	}
 
 	// Create() will create or truncate the file
-	file, err := os.Create("numbers.log")
+	file, err := os.Create(log)
 	if err != nil {
-		log.Fatal("cannot create log file:", err.Error())
+		return fmt.Errorf("cannot create log file: %w", err)
 	}
 	defer file.Close()
 
-	dedup := deduper.New(file, 5)
+	ctx, cancel := context.WithCancel(context.Background())
 
-	go handleConnections(listener, dedup)
-	dedup.Log()
+	// Initialize a deduper
+	dd := deduper.New()
+	defer dd.Close()
+
+	// Start writing log and reporting to console
+	go dd.Log(ctx, file, reportInterval)
+
+	var (
+		wg     sync.WaitGroup
+		runErr error
+	)
+	// Handling connections until context cancelled
+	connCh := make(chan net.Conn, 1)
+
+	go func(ctx context.Context) {
+		for {
+			select {
+			case <-ctx.Done():
+				break
+			default:
+			}
+			println("new connection waiting")
+			conn, err := listener.Accept()
+			if err != nil {
+				if !errors.Is(err, ErrNetClosing) {
+					runErr = fmt.Errorf("error accepting TCP connection: %w", err)
+				}
+				println("aborted new connection")
+				break
+			}
+			println("connection accepted")
+			connCh <- conn
+		}
+		println("connection dispatcher returning")
+		return
+	}(ctx)
+
+	for conn := range connCh {
+		wg.Add(1)
+		go func() {
+			conn.SetReadDeadline(time.Now().Add(readTimeout))
+
+			err := dd.FromNetwork(conn, readTimeout)
+			if err == deduper.ErrTerminationSeq {
+				cancel()
+				close(connCh)
+				println("conn channel closed")
+			}
+			conn.Close()
+			wg.Done()
+			return
+		}()
+	}
+	println("waiting for all goroutines to complete")
+	wg.Wait()
+	return runErr
 }
 
 func main() {
-	run()
+	if err := run(os.Args); err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		os.Exit(1)
+	}
 }
